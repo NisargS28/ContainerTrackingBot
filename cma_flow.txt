@@ -1,0 +1,66 @@
+SET Status TO $'''Tracked'''
+SET SLine TO $'''CMA'''
+WAIT 4
+UIAutomation.Click.Click Element: appmask['Window \'CMA CGM |  ...  - Microsoft​ Edge\' 2']['Edit \'Search by Container Number, Shipment Ref or My Ref*\''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+WebAutomation.PopulateTextField.PopulateTextFieldUsePhysicalKeyboard BrowserInstance: Browser Control: appmask['Web Page \'https://www.cma-cgm.com/eBusiness/Tracking\'']['Input text \'SearchViewModel.Reference\''] Text: CMAParts[0] Mode: WebAutomation.PopulateTextMode.Replace UnfocusAfterPopulate: True WaitForPageToLoadTimeout: 60
+UIAutomation.Click.Click Element: appmask['Window \'CMA CGM |  ...  - Microsoft​ Edge\' 2']['Button \'Search\''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+WAIT 5
+DISABLE IF (WebAutomation.IfWebPageContains.WebPageContainsElement BrowserInstance: Browser Control: appmask['Web Page \'h ... ing/search\'']['Span \'Display Details\'']) THEN
+    DISABLE CALL cma_multiple
+    DISABLE EXIT FUNCTION
+DISABLE END
+WebAutomation.ExtractData.ExtractHandPickedValues BrowserInstance: Browser ExtractionParameters: {[$'''html > body > div:eq(2) > main > section:eq(1) > div:eq(0) > section > div > ul > li:eq(2) > div:eq(2) > p:eq(0) > span:eq(0)''', $'''Own Text''', $'''''', $'''Value #1'''], [$'''html > body > div:eq(2) > main > section:eq(1) > div:eq(0) > div > div:eq(1) > div > table > tbody > tr:eq(4) > td:eq(2) > div > span:eq(0)''', $'''Own Text''', $'''''', $'''Value #2'''] } TimeoutInSeconds: 60 ExtractedData=> ExtractedContainer
+    ON ERROR ExtractDataError
+        CALL cma_multiple
+        REPEAT ACTION
+    ON ERROR
+        CALL cma_multiple
+    END
+LOOP FOREACH CurrentExtractedRow IN ExtractedContainer
+    Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: CurrentExtractedRow[0] Column: $'''C''' Row: TargetRow
+    IF Contains(CurrentExtractedRow[1], 4, True) THEN
+        SET CurrentExtractedRow[1] TO $'''40\''''
+    ELSE IF Contains(CurrentExtractedRow[1], 2, True) THEN
+        SET CurrentExtractedRow[1] TO $'''20\''''
+    END
+    Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: CurrentExtractedRow[1] Column: $'''D''' Row: TargetRow
+    Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: CurrentExtractedRow[2] Column: $'''E''' Row: TargetRow
+    SET finalETA TO CurrentExtractedRow[3]
+    BLOCK dateerror
+ON BLOCK ERROR all
+    NEXT ACTION
+END
+        Text.ConvertDateTimeToText.FromCustomDateTime DateTime: CurrentExtractedRow[3] CustomFormat: $'''dd-MM-yyyy''' Result=> FormattedDateTime
+        Text.ConvertTextToDateTime.ToDateTimeCustomFormat Text: FormattedDateTime CustomFormat: $'''dd-MM-yyyy''' DateTime=> finalETA
+    END
+    Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: finalETA Column: $'''F''' Row: TargetRow
+        ON ERROR WriteToExcelError
+            SET Status TO $'''Not Tracked'''
+            SET CurrentExtractedRow[3] TO $'''---'''
+        END
+    IF IsEmpty(CurrentExtractedRow[3]) THEN
+        SET Status TO $'''Not Updated'''
+    END
+    Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: Status Column: $'''G''' Row: TargetRow
+    DateTime.GetCurrentDateTime.Local DateTimeFormat: DateTime.DateTimeFormat.DateAndTime CurrentDateTime=> CurrentDateTime
+    IF finalETA >= CurrentDateTime THEN
+        SET DeliveryStatus TO $'''NotDelivered'''
+    ELSE
+        SET DeliveryStatus TO $'''Delivered'''
+    END
+    IF Contains(Status, $'''Not''', True) THEN
+        SET DeliveryStatus TO $'''Not Updated'''
+    END
+    Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: DeliveryStatus Column: $'''I''' Row: TargetRow
+        ON ERROR WriteToExcelError
+            SET Unknown TO $'''Unknown'''
+            THROW ERROR
+        END
+    Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: CurrentDateTime Column: $'''H''' Row: TargetRow
+        ON ERROR WriteToExcelError
+            SET Unknown TO $'''Unknown'''
+            THROW ERROR
+        END
+    Excel.ResizeColumnsOrRows.AutofitAllColumns Instance: ExcelInstance
+    Variables.IncreaseVariable Value: OutputRow IncrementValue: 1
+END

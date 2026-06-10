@@ -1,0 +1,93 @@
+DISABLE UIAutomation.Click.Click Element: appmask['Window \'Shipping  ...  - Microsoft​ Edge\'']['Button \'Accept All\''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+ON ERROR
+
+END
+WebAutomation.PressButton.PressButton BrowserInstance: Browser Control: appmask['Web Page \'https://www.msc.com/en/track-a-shipment\'']['Button \'Accept All\''] WaitForPageToLoadTimeout: 60
+    ON ERROR
+
+    END
+SET Status TO $'''Tracked'''
+SET SLine TO $'''MSC'''
+WAIT 3
+UIAutomation.Click.Click Element: appmask['Window \'Shipping  ...  - Microsoft​ Edge\' 2']['Edit \'Enter a Container/Bill of Lading Number\' 8'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+WebAutomation.PopulateTextField.PopulateTextFieldUsePhysicalKeyboard BrowserInstance: Browser Control: appmask['Web Page \'https://www.msc.com/en/track-a-shipment\'']['Input text \'trackingNumber\' 6'] Text: MSCParts[0] Mode: WebAutomation.PopulateTextMode.Replace UnfocusAfterPopulate: True WaitForPageToLoadTimeout: 60
+WebAutomation.PressButton.PressButton BrowserInstance: Browser Control: appmask['Web Page \'https://www.msc.com/en/track-a-shipment\'']['Button'] WaitForPageToLoadTimeout: 60
+WAIT 5
+DISABLE UIAutomation.GetElementDetails Element: appmask['Window \'Shipping  ...  - Microsoft​ Edge\' 2']['Text \'22/05/2026\''] AttributeName: $'''Own Text''' BringToFront: True AttributeValue=> ETD
+WebAutomation.ExtractData.ExtractHandPickedValues BrowserInstance: Browser ExtractionParameters: {[$'''html > body > div:eq(0) > div:eq(0) > div > div:eq(2) > div > div > div > div:eq(0) > div > div > div:eq(2) > div > div > div:eq(1) > div:eq(1) > div:eq(2) > div > div:eq(1) > div > div > span:eq(1)''', $'''Own Text''', $'''''', $'''Value #1'''], [$'''html > body > div:eq(0) > div:eq(0) > div > div:eq(2) > div > div > div > div:eq(0) > div > div > div:eq(2) > div > div > div:eq(1) > div:eq(1) > div:eq(3) > div > div:eq(1) > div > div > span:eq(1)''', $'''Own Text''', $'''''', $'''Value #2'''], [$'''html > body > div:eq(0) > div:eq(0) > div > div:eq(2) > div > div > div > div:eq(0) > div > div > div:eq(2) > div > div > div:eq(0) > div > div:eq(3) > div > div > div > span:eq(1)''', $'''Own Text''', $'''''', $'''Value #3'''] } TimeoutInSeconds: 60 ExtractedData=> ExtractedContainerTable
+    ON ERROR ExtractDataError
+        SET Status TO $'''Not Tracked'''
+    ON ERROR
+        SET Status TO $'''Not Updated'''
+        SET CurrentExtractedRow[0] TO $'''---'''
+        SET CurrentExtractedRow[1] TO $'''---'''
+        SET CurrentExtractedRow[2] TO $'''---'''
+        SET CurrentExtractedRow[3] TO $'''---'''
+    END
+DISABLE Display.ShowMessageDialog.ShowMessage Title: $'''Extracted Data table''' Message: ExtractedContainerTable Icon: Display.Icon.Information Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False
+DISABLE Text.ConvertTextToDateTime.ToDateTime Text: $'''sdfs''' DateTime=> TextAsDateTime
+LOOP FOREACH CurrentExtractedRow IN ExtractedContainerTable
+    DISABLE Display.ShowMessageDialog.ShowMessage Title: $'''Extracted Data table''' Message: $'''Zero--%CurrentExtractedRow[0]%
+One--%CurrentExtractedRow[1]%
+Two-- %CurrentExtractedRow[2]%
+''' Icon: Display.Icon.Information Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False
+    IF IsEmpty(ExtractedContainerTable) THEN
+        SET Status TO $'''Not Tracked'''
+        SET CurrentExtractedRow[0] TO $'''---'''
+        SET CurrentExtractedRow[1] TO $'''---'''
+        SET CurrentExtractedRow[2] TO $'''---'''
+    ELSE
+        IF (WebAutomation.IfWebPageContains.WebPageContainsElement BrowserInstance: Browser Control: appmask['Web Page \'https://www.msc.com/en/track-a-shipment\'']['Span \'Full Transshipment Discharged\'']) THEN
+            Text.ConvertDateTimeToText.FromCustomDateTime DateTime: CurrentExtractedRow[0] CustomFormat: $'''ddMMyyyy''' Result=> FormattedDate
+            Text.ConvertTextToDateTime.ToDateTimeCustomFormat Text: FormattedDate CustomFormat: $'''ddMMyyyy''' DateTime=> date1
+            Text.ConvertDateTimeToText.FromCustomDateTime DateTime: CurrentExtractedRow[1] CustomFormat: $'''ddMMyyyy''' Result=> FormattedDate
+            Text.ConvertTextToDateTime.ToDateTimeCustomFormat Text: FormattedDate CustomFormat: $'''ddMMyyyy''' DateTime=> date2
+            IF date1 > date2 THEN
+                SET ETD TO CurrentExtractedRow[1]
+            END
+        ELSE
+            SET ETD TO CurrentExtractedRow[0]
+        END
+    END
+    Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: ETD Column: $'''C''' Row: TargetRow
+    DISABLE BLOCK dateerror
+ON BLOCK ERROR all
+    NEXT ACTION
+END
+        DISABLE Text.ConvertDateTimeToText.FromCustomDateTime DateTime: CurrentExtractedRow[3] CustomFormat: $'''dd-MM-yyyy''' Result=> FormattedDateTime
+        DISABLE Text.ConvertTextToDateTime.ToDateTimeCustomFormat Text: FormattedDateTime CustomFormat: $'''dd-MM-yyyy''' DateTime=> finalETA
+    DISABLE END
+    DISABLE Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: finalETA Column: $'''F''' Row: TargetRow
+        ON ERROR WriteToExcelError
+            SET Status TO $'''Not Tracked'''
+            SET CurrentExtractedRow[3] TO $'''---'''
+        END
+    IF IsEmpty(CurrentExtractedRow[2]) THEN
+        SET Status TO $'''Not Updated'''
+    END
+    Text.ConvertDateTimeToText.FromCustomDateTime DateTime: CurrentExtractedRow[2] CustomFormat: $'''ddMMyyyy''' Result=> FormattedDate
+    Text.ConvertTextToDateTime.ToDateTimeCustomFormat Text: FormattedDate CustomFormat: $'''ddMMyyyy''' DateTime=> FinalETA
+    Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: FinalETA Column: $'''D''' Row: TargetRow
+    Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: Status Column: $'''E''' Row: TargetRow
+    DateTime.GetCurrentDateTime.Local DateTimeFormat: DateTime.DateTimeFormat.DateAndTime CurrentDateTime=> CurrentDateTime
+    IF finalETA >= CurrentDateTime THEN
+        SET DeliveryStatus TO $'''NotDelivered'''
+    ELSE
+        SET DeliveryStatus TO $'''Delivered'''
+    END
+    IF Contains(Status, $'''Not''', True) THEN
+        SET DeliveryStatus TO $'''Not Updated'''
+    END
+    Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: CurrentDateTime Column: $'''F''' Row: TargetRow
+        ON ERROR WriteToExcelError
+            SET Unknown TO $'''Unknown'''
+            THROW ERROR
+        END
+    Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: DeliveryStatus Column: $'''G''' Row: TargetRow
+        ON ERROR WriteToExcelError
+            SET Unknown TO $'''Unknown'''
+            THROW ERROR
+        END
+    Excel.ResizeColumnsOrRows.AutofitAllColumns Instance: ExcelInstance
+    Variables.IncreaseVariable Value: OutputRow IncrementValue: 1
+END

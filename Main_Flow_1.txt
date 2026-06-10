@@ -1,0 +1,179 @@
+DISABLE Excel.LaunchExcel.LaunchAndOpenUnderExistingProcess Path: $'''D:\\Nisarg.Doc\\Skaps\\automate\\Export Sheet 2026-27.xlsx''' Visible: True ReadOnly: False UseMachineLocale: False Instance=> ExportExcel
+DISABLE Excel.GetAllWorksheets Instance: ExportExcel Worksheets=> ExportSheetNames
+Excel.LaunchExcel.LaunchAndOpenUnderExistingProcess Path: $'''D:\\Nisarg.Doc\\Skaps\\automate\\bl_full_with delivery.xlsx''' Visible: True ReadOnly: False UseMachineLocale: False Instance=> ExcelInstance
+Excel.GetAllWorksheets Instance: ExcelInstance Worksheets=> SheetNames
+DISABLE LOOP FOREACH CurrentExportSheet IN ExportSheetNames
+    DISABLE Excel.SetActiveWorksheet.ActivateWorksheetByName Instance: ExcelInstance Name: CurrentSheet
+    DISABLE SET SLineColumn TO 9
+    DISABLE SET ContainerColumn TO 10
+    DISABLE Excel.GetFirstFreeRowOnColumn Instance: ExportExcel Column: SLineColumn FirstFreeRowOnColumn=> FirstFreeRow
+    DISABLE SET LastRow TO FirstFreeRow - 1
+    DISABLE SET ExcelRow TO 2
+    DISABLE LOOP WHILE (ExcelRow) <= (LastRow)
+        DISABLE Excel.ReadFromExcel.ReadCell Instance: ExportExcel StartColumn: SLineColumn StartRow: ExcelRow GetCellContentsMode: Excel.GetCellContentsMode.TypedValues CellValue=> SLine
+        DISABLE Excel.ReadFromExcel.ReadCell Instance: ExportExcel StartColumn: ContainerColumn StartRow: ExcelRow GetCellContentsMode: Excel.GetCellContentsMode.TypedValues CellValue=> ContainerNo
+        DISABLE Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: SLine Column: $'''A''' Row: ExcelRow
+        DISABLE Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: ContainerNo Column: $'''B''' Row: ExcelRow
+        DISABLE Variables.IncreaseVariable Value: ExcelRow IncrementValue: 1
+    DISABLE END
+DISABLE END
+LOOP FOREACH CurrentSheet IN SheetNames
+    Variables.CreateNewList List=> UNSUPPORTED_List
+    Variables.CreateNewList List=> ONE_List
+    Variables.CreateNewList List=> MSC_List
+    Variables.CreateNewList List=> CMA_List
+    Variables.CreateNewList List=> HAPAG_List
+    Variables.CreateNewList List=> MAERSK_List
+    Variables.CreateNewList List=> CMA_Con
+    Variables.CreateNewList List=> MAERSK_BL_List
+    Variables.CreateNewDatatable InputTable: { ^['S/Line', 'B/L', 'Container No.'], [$'''''', $'''''', $''''''] } DataTable=> DataTable
+    SET Status TO $'''Tracked'''
+    Excel.SetActiveWorksheet.ActivateWorksheetByName Instance: ExcelInstance Name: CurrentSheet
+    SET SLineColumn TO 1
+    SET ContainerColumn TO 2
+    SET DelColumn TO 9
+    Excel.GetFirstFreeRowOnColumn Instance: ExcelInstance Column: SLineColumn FirstFreeRowOnColumn=> FirstFreeRow
+    SET LastRow TO FirstFreeRow - 1
+    SET ExcelRow TO 2
+    LOOP WHILE (ExcelRow) <= (LastRow)
+        Excel.ReadFromExcel.ReadCell Instance: ExcelInstance StartColumn: SLineColumn StartRow: ExcelRow GetCellContentsMode: Excel.GetCellContentsMode.TypedValues CellValue=> SLine
+        Excel.ReadFromExcel.ReadCell Instance: ExcelInstance StartColumn: ContainerColumn StartRow: ExcelRow GetCellContentsMode: Excel.GetCellContentsMode.TypedValues CellValue=> ContainerNo
+        Excel.ReadFromExcel.ReadCell Instance: ExcelInstance StartColumn: DelColumn StartRow: ExcelRow GetCellContentsMode: Excel.GetCellContentsMode.TypedValues CellValue=> DeliveryStatus
+        SET Carrier TO $'''\"\"'''
+        LOOP LoopIndex FROM 0 TO 9 STEP 1
+            IF Contains(SLine, $'''MSC''', True) THEN
+                IF Contains(DeliveryStatus, $'''Not''', True) THEN
+                    Variables.AddItemToList Item: $'''%ContainerNo%|||%ExcelRow%''' List: MSC_List
+                ELSE IF IsEmpty(DeliveryStatus) THEN
+                    Variables.AddItemToList Item: $'''%ContainerNo%|||%ExcelRow%''' List: MSC_List
+                END
+                SET Carrier TO $'''\"MSC\"'''
+                EXIT LOOP
+            END
+            IF Contains(SLine, $'''HAPAG''', True) THEN
+                IF Contains(DeliveryStatus, $'''Not''', True) THEN
+                    Variables.AddItemToList Item: $'''%ContainerNo%|||%ExcelRow%''' List: HAPAG_List
+                ELSE IF IsEmpty(DeliveryStatus) THEN
+                    Variables.AddItemToList Item: $'''%ContainerNo%|||%ExcelRow%''' List: HAPAG_List
+                END
+                SET Carrier TO $'''\"HAPAG\"'''
+                EXIT LOOP
+            END
+            IF Contains(SLine, $'''CMA''', True) THEN
+                DISABLE Display.ShowMessageDialog.ShowMessage Title: $'''BL NO''' Message: BLNo Icon: Display.Icon.Information Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False
+                IF Contains(DeliveryStatus, $'''Not''', True) THEN
+                    Variables.AddItemToList Item: ContainerNo List: CMA_Con
+                    Variables.AddItemToList Item: $'''%ContainerNo%|||%ExcelRow%''' List: CMA_List
+                ELSE IF IsEmpty(DeliveryStatus) THEN
+                    Variables.AddItemToList Item: ContainerNo List: CMA_Con
+                    Variables.AddItemToList Item: $'''%ContainerNo%|||%ExcelRow%''' List: CMA_List
+                END
+                SET Carrier TO $'''\"CMA\"'''
+                EXIT LOOP
+            END
+            IF Contains(SLine, $'''MAERSK''', True) THEN
+                IF Contains(DeliveryStatus, $'''Not''', True) THEN
+                    Variables.AddItemToList Item: $'''%ContainerNo%|||%ExcelRow%''' List: MAERSK_List
+                ELSE IF IsEmpty(DeliveryStatus) THEN
+                    Variables.AddItemToList Item: $'''%ContainerNo%|||%ExcelRow%''' List: MAERSK_List
+                END
+                SET Carrier TO $'''\"MAERSK\"'''
+                EXIT LOOP
+            END
+            IF Contains(SLine, $'''MAERKS''', True) THEN
+                IF Contains(DeliveryStatus, $'''Not''', True) THEN
+                    Variables.AddItemToList Item: $'''%ContainerNo%|||%ExcelRow%''' List: MAERSK_List
+                ELSE IF IsEmpty(DeliveryStatus) THEN
+                    Variables.AddItemToList Item: $'''%ContainerNo%|||%ExcelRow%''' List: MAERSK_List
+                END
+                SET Carrier TO $'''\"MAERSK\"'''
+                EXIT LOOP
+            END
+            IF Contains(SLine, $'''ONE''', True) THEN
+                IF Contains(DeliveryStatus, $'''Not''', True) THEN
+                    Variables.AddItemToList Item: $'''%ContainerNo%|||%ExcelRow%''' List: ONE_List
+                ELSE IF IsEmpty(DeliveryStatus) THEN
+                    Variables.AddItemToList Item: $'''%ContainerNo%|||%ExcelRow%''' List: ONE_List
+                END
+                SET Carrier TO $'''\"ONE LINE\"'''
+                EXIT LOOP
+            END
+        END
+        Variables.IncreaseVariable Value: ExcelRow IncrementValue: 1
+    END
+    Variables.RemoveDuplicateItemsFromList List: MSC_List IgnoreCase: False
+    Excel.AddWorksheet Instance: ExcelInstance Name: CurrentSheet WorksheetPosition: Excel.WorksheetPosition.Last
+    ON ERROR
+
+    END
+    Excel.SetActiveWorksheet.ActivateWorksheetByName Instance: ExcelInstance Name: CurrentSheet
+    WebAutomation.LaunchEdge.LaunchEdge Url: $'''https://www.msc.com/en/track-a-shipment''' ClearCache: False ClearCookies: False WindowState: WebAutomation.BrowserWindowState.Normal WaitForPageToLoadTimeout: 80 Timeout: 60 PiPUserDataFolderMode: WebAutomation.PiPUserDataFolderModeEnum.AutomaticProfile TargetDesktop: $'''{\"DisplayName\":\"Local computer\",\"Route\":{\"ServerType\":\"Local\",\"ServerAddress\":\"\"},\"DesktopType\":\"local\"}''' BrowserInstance=> Browser
+    IF IsNotEmpty(MSC_List) THEN
+        Variables.RemoveDuplicateItemsFromList List: MSC_List IgnoreCase: False
+        LOOP FOREACH MSCBL IN MSC_List
+            Text.SplitText.SplitWithDelimiter Text: MSCBL CustomDelimiter: $'''|||''' IsRegEx: False Result=> MSCParts
+            SET TargetRow TO MSCParts[1]
+            SET OutputRow TO TargetRow
+            CALL MSC
+        END
+    END
+    IF IsNotEmpty(CMA_List) THEN
+        Variables.RemoveDuplicateItemsFromList List: CMA_List IgnoreCase: False
+        WebAutomation.GoToWebPage.GoToWebPage BrowserInstance: Browser Url: $'''https://www.cma-cgm.com/eBusiness/Tracking''' WaitForPageToLoadTimeout: 60
+        SET LoopIndex TO 0
+        LOOP WHILE (LoopIndex) < (CMA_List.Count)
+            SET CMACon TO CMA_Con[LoopIndex]
+            SET CMABL TO CMA_List[LoopIndex]
+            Text.SplitText.SplitWithDelimiter Text: CMABL CustomDelimiter: $'''|||''' IsRegEx: False Result=> CMAParts
+            SET TargetRow TO CMAParts[1]
+            SET OutputRow TO TargetRow
+            CALL CMA
+            Variables.IncreaseVariable Value: LoopIndex IncrementValue: 1
+        END
+    END
+    IF IsNotEmpty(MAERSK_List) THEN
+        Variables.RemoveDuplicateItemsFromList List: MAERSK_List IgnoreCase: False
+        WebAutomation.GoToWebPage.GoToWebPage BrowserInstance: Browser Url: $'''https://www.maersk.com/tracking/''' WaitForPageToLoadTimeout: 60
+        SET LoopIndex TO 0
+        LOOP WHILE (LoopIndex) < (MAERSK_List.Count)
+            SET MAERSKContainer TO MAERSK_List[LoopIndex]
+            SET MaerskBL TO MAERSK_BL_List[LoopIndex]
+            Text.SplitText.SplitWithDelimiter Text: MAERSKContainer CustomDelimiter: $'''|||''' IsRegEx: False Result=> MaerskParts
+            SET TargetRow TO MaerskParts[1]
+            SET OutputRow TO TargetRow
+            CALL maersk
+            Variables.IncreaseVariable Value: LoopIndex IncrementValue: 1
+        END
+    END
+    IF IsNotEmpty(ONE_List) THEN
+        Variables.RemoveDuplicateItemsFromList List: ONE_List IgnoreCase: False
+        WebAutomation.GoToWebPage.GoToWebPage BrowserInstance: Browser Url: $'''https://in.one-line.com/''' WaitForPageToLoadTimeout: 60
+        LOOP FOREACH ONEBL IN ONE_List
+            Text.SplitText.SplitWithDelimiter Text: ONEBL CustomDelimiter: $'''|||''' IsRegEx: False Result=> ONEParts
+            SET TargetRow TO ONEParts[1]
+            SET OutputRow TO TargetRow
+            CALL ONE
+        END
+    END
+    IF IsNotEmpty(HAPAG_List) THEN
+        Variables.RemoveDuplicateItemsFromList List: HAPAG_List IgnoreCase: False
+        WebAutomation.GoToWebPage.GoToWebPage BrowserInstance: Browser Url: $'''https://www.hapag-lloyd.com/en/online-business/track/track-by-container-solution.html''' WaitForPageToLoadTimeout: 60
+        SET LoopIndex TO 0
+        LOOP WHILE (LoopIndex) < (HAPAG_List.Count)
+            SET HAPAGContainer TO HAPAG_List[LoopIndex]
+            Text.SplitText.SplitWithDelimiter Text: HAPAGContainer CustomDelimiter: $'''|||''' IsRegEx: False Result=> HapagParts
+            SET TargetRow TO HapagParts[1]
+            SET OutputRow TO TargetRow
+            CALL HAPAG
+            Variables.IncreaseVariable Value: LoopIndex IncrementValue: 1
+        END
+    END
+    DISABLE IF IsNotEmpty(UNSUPPORTED_List) THEN
+        DISABLE Variables.RemoveDuplicateItemsFromList List: UNSUPPORTED_List IgnoreCase: False
+        DISABLE LOOP FOREACH UNSBL IN UNSUPPORTED_List
+            DISABLE CALL Unsupport_list
+        DISABLE END
+    DISABLE END
+    WebAutomation.CloseWebBrowser BrowserInstance: Browser
+END
+Excel.SaveExcel.Save Instance: ExcelInstance

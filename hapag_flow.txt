@@ -1,0 +1,85 @@
+SET Status TO $'''Tracked'''
+SET SLine TO $'''HAPAG'''
+DISABLE WAIT 6
+DISABLE WebAutomation.PressButton.PressButtonPressDialogButton BrowserInstance: Browser Control: appmask['Web Page \'h ... ution.html\'']['Div 2'] WaitForPageToLoadTimeout: 60 DialogButton: $'''OK'''
+DISABLE UIAutomation.Click.Click Element: appmask['Window \'Just a moment... - Personal - Microsoft​ Edge\'']['Check Box \'Verify you are human\' 2'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+ON ERROR
+
+END
+DISABLE WAIT 6
+Text.GetSubtext.GetSubtextFromStartTo Text: HapagParts[0] NumberOfChars: 4 Subtext=> Prefix
+Text.GetSubtext.GetSubtextFrom Text: HapagParts[0] CharacterPosition: 4 Subtext=> suffix
+SET FinalContainer TO $'''%Prefix%++%suffix%'''
+WebAutomation.GoToWebPage.GoToWebPage BrowserInstance: Browser Url: $'''https://www.hapag-lloyd.com/en/online-business/track/track-by-container-solution.html?container=%FinalContainer%''' WaitForPageToLoadTimeout: 60
+WAIT 4
+UIAutomation.Click.Click Element: appmask['Window \'Just a moment... - Personal - Microsoft​ Edge\'']['Check Box \'Verify you are human\' 2'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+    ON ERROR
+
+    END
+WAIT 2
+UIAutomation.PressButton Button: appmask['Window \'Tracing by  ...  - Microsoft​ Edge\' 2']['Button \'Confirm My Choices\''] Simulate: False
+    ON ERROR
+
+    END
+IF (WebAutomation.IfWebPageContains.WebPageContainsText BrowserInstance: Browser Text: $'''Vessel arrival''') THEN
+    WebAutomation.ExtractData.ExtractList BrowserInstance: Browser Control: $'''html > body > div:eq(1) > div:eq(1) > div:eq(1) > div > div > div > div > div:eq(1) > div > div > div > div > form > div:eq(4) > div:eq(1) > div > div > table > tbody > tr > td > table > tbody > tr:eq(4) > td > table > tbody > tr > td > table > tbody > tr > td > table > tbody > tr > td:eq(1) > table > tbody > tr:eq(4) > td''' ExtractionParameters: {[$'''span''', $'''Own Text''', $''''''] } PostProcessData: False TimeoutInSeconds: 60 ExtractedData=> VesselArrivalData
+    DISABLE Display.ShowMessageDialog.ShowMessage Title: $'''Arrival Data''' Message: VesselArrivalData Icon: Display.Icon.Information Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False
+    DISABLE LOOP FOREACH Arrivaldata IN VesselArrivalData
+        SET eta TO VesselArrivalData[2]
+    DISABLE END
+END
+IF (WebAutomation.IfWebPageContains.WebPageContainsText BrowserInstance: Browser Text: $'''Vessel arrived''') THEN
+    WebAutomation.ExtractData.ExtractList BrowserInstance: Browser Control: $'''html > body > div:eq(1) > div:eq(1) > div:eq(1) > div > div > div > div > div:eq(1) > div > div > div > div > form > div:eq(4) > div:eq(1) > div > div > table > tbody > tr > td > table > tbody > tr:eq(4) > td > table > tbody > tr > td > table > tbody > tr > td > table > tbody > tr > td:eq(1) > table > tbody > tr:eq(4) > td''' ExtractionParameters: {[$'''span''', $'''Own Text''', $''''''] } PostProcessData: False TimeoutInSeconds: 60 ExtractedData=> VesselArrivedData
+    DISABLE Display.ShowMessageDialog.ShowMessage Title: $'''Arrived Data''' Message: VesselArrivedData Icon: Display.Icon.Information Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False
+    DISABLE LOOP FOREACH Arriveddata IN VesselArrivedData
+        SET eta TO VesselArrivedData[2]
+    DISABLE END
+END
+WebAutomation.ExtractData.ExtractHandPickedValues BrowserInstance: Browser ExtractionParameters: {[$'''html > body > div:eq(1) > div:eq(1) > div:eq(1) > div > div > div > div > div:eq(1) > div > div > div > div > form > div:eq(4) > div:eq(1) > div > div > table > tbody > tr > td > table > tbody > tr:eq(0) > td > table > tbody > tr > td > div > table > tbody > tr > td:eq(0) > table > tbody > tr > td:eq(1) > span''', $'''Own Text''', $'''''', $'''Value #1'''], [$'''html > body > div:eq(1) > div:eq(1) > div:eq(1) > div > div > div > div > div:eq(1) > div > div > div > div > form > div:eq(4) > div:eq(1) > div > div > table > tbody > tr > td > table > tbody > tr:eq(3) > td > table > tbody > tr > td > div > table > tbody > tr > td:eq(0) > table > tbody > tr > td:eq(1)''', $'''Own Text''', $'''''', $'''Value #2'''], [$'''html > body > div:eq(1) > div:eq(1) > div:eq(1) > div > div > div > div > div:eq(1) > div > div > div > div > form > div:eq(4) > div:eq(1) > div > div > table > tbody > tr > td > table > tbody > tr:eq(4) > td > table > tbody > tr > td > table > tbody > tr > td > table > tbody > tr > td:eq(1) > table > tbody > tr:eq(8) > td:eq(2)''', $'''Own Text''', $'''''', $'''Value #3'''] } TimeoutInSeconds: 60 ExtractedData=> ExtractedContainerTable
+LOOP FOREACH CurrentExtractedRow IN ExtractedContainerTable
+    IF Contains(CurrentExtractedRow[0], 4, True) THEN
+        SET CurrentExtractedRow[0] TO $'''40\''''
+    ELSE IF Contains(CurrentExtractedRow[0], 2, True) THEN
+        SET CurrentExtractedRow[0] TO $'''22\''''
+    END
+    Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: CurrentExtractedRow[0] Column: $'''D''' Row: TargetRow
+    Text.SplitText.SplitWithDelimiter Text: CurrentExtractedRow[1] CustomDelimiter: $'''(?:\\bin\\s+|\\bfrom\\s+)(.*?)(?:\\s+at\\b|\\s+on\\b)''' IsRegEx: True Result=> lastmove
+    Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: lastmove[1] Column: $'''E''' Row: TargetRow
+    BLOCK dateerror
+ON BLOCK ERROR all
+    NEXT ACTION
+END
+        Text.ConvertDateTimeToText.FromCustomDateTime DateTime: eta CustomFormat: $'''dd-MM-yyyy''' Result=> finalETA
+        DISABLE Text.ConvertTextToDateTime.ToDateTimeCustomFormat Text: FormattedDateTime CustomFormat: $'''dd-MM-yyyy''' DateTime=> finalETA
+    END
+    Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: eta Column: $'''F''' Row: TargetRow
+        ON ERROR WriteToExcelError
+            SET Status TO $'''Not Tracked'''
+            SET CurrentExtractedRow[3] TO $'''---'''
+        END
+    IF IsEmpty(CurrentExtractedRow[2]) THEN
+        SET Status TO $'''Not Updated'''
+    END
+    Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: Status Column: $'''G''' Row: TargetRow
+    DateTime.GetCurrentDateTime.Local DateTimeFormat: DateTime.DateTimeFormat.DateAndTime CurrentDateTime=> CurrentDateTime
+    IF finalETA >= CurrentDateTime THEN
+        SET DeliveryStatus TO $'''NotDelivered'''
+    ELSE
+        SET DeliveryStatus TO $'''Delivered'''
+    END
+    IF Contains(Status, $'''Not''', True) THEN
+        SET DeliveryStatus TO $'''Not Updated'''
+    END
+    Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: DeliveryStatus Column: $'''I''' Row: TargetRow
+        ON ERROR WriteToExcelError
+            SET Unknown TO $'''Unknown'''
+            THROW ERROR
+        END
+    Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: CurrentDateTime Column: $'''H''' Row: TargetRow
+        ON ERROR WriteToExcelError
+            SET Unknown TO $'''Unknown'''
+            THROW ERROR
+        END
+    Excel.ResizeColumnsOrRows.AutofitAllColumns Instance: ExcelInstance
+    Variables.IncreaseVariable Value: OutputRow IncrementValue: 1
+END

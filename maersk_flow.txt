@@ -1,0 +1,60 @@
+SET Status TO $'''Tracked'''
+SET SLine TO $'''MAERSK'''
+WAIT 3
+WebAutomation.GoToWebPage.GoToWebPage BrowserInstance: Browser Url: $'''https://www.maersk.com/tracking/%MaerskParts[0]%''' WaitForPageToLoadTimeout: 60
+WAIT 5
+UIAutomation.GetElementDetails Element: appmask['Window \'MRSU3530736  ...  - Microsoft​ Edge\'']['List Item \'Vessel  ...  07 May 2026 04:05 \''] AttributeName: $'''Own Text''' BringToFront: True AttributeValue=> ETD
+WebAutomation.ExtractData.ExtractHandPickedValues BrowserInstance: Browser ExtractionParameters: {[$'''html > body > div > div > div > main > div:eq(1) > div > header > mc-text-and-icon:eq(0) > span:eq(0)''', $'''Own Text''', $'''''', $'''Value #1'''], [$'''html > body > div > div > div > main > div:eq(1) > div > header > mc-text-and-icon:eq(0) > span:eq(2)''', $'''Own Text''', $'''''', $'''Value #2'''], [$'''html > body > div > div > div > main > div:eq(1) > div > div:eq(0) > mc-text-and-icon:eq(1) > span''', $'''Own Text''', $'''''', $'''Value #3'''], [$'''html > body > div > div > div > main > div:eq(1) > div > div:eq(0) > mc-text-and-icon:eq(0) > ms-pad-shadow-root > div > span > slot:eq(1)''', $'''Own Text''', $'''''', $'''Value #4'''] } TimeoutInSeconds: 60 ExtractedData=> ExtractedContainerTable
+    ON ERROR
+        SET Status TO $'''Not Updated'''
+    END
+LOOP FOREACH CurrentExtractedRow IN ExtractedContainerTable
+    SET LatestEvent TO CurrentExtractedRow[2]
+    Text.SplitText.SplitWithDelimiter Text: LatestEvent CustomDelimiter: $'''•''' IsRegEx: False Result=> movesplit
+    SET CurrentExtractedRow[2] TO movesplit[1]
+    Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: CurrentExtractedRow[0] Column: $'''C''' Row: TargetRow
+    IF Contains(CurrentExtractedRow[1], 4, True) THEN
+        SET CurrentExtractedRow[1] TO $'''40\''''
+    ELSE IF Contains(CurrentExtractedRow[1], 2, True) THEN
+        SET CurrentExtractedRow[1] TO $'''22\''''
+    END
+    Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: CurrentExtractedRow[1] Column: $'''D''' Row: TargetRow
+    Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: CurrentExtractedRow[2] Column: $'''E''' Row: TargetRow
+    BLOCK dateerror
+ON BLOCK ERROR all
+    NEXT ACTION
+END
+        Text.ConvertDateTimeToText.FromCustomDateTime DateTime: CurrentExtractedRow[3] CustomFormat: $'''dd-MM-yyyy''' Result=> FormattedDateTime
+        Text.ConvertTextToDateTime.ToDateTimeCustomFormat Text: FormattedDateTime CustomFormat: $'''dd-MM-yyyy''' DateTime=> finalETA
+    END
+    Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: finalETA Column: $'''F''' Row: TargetRow
+        ON ERROR WriteToExcelError
+            SET Status TO $'''Not Tracked'''
+            SET CurrentExtractedRow[3] TO $'''---'''
+        END
+    IF IsEmpty(CurrentExtractedRow[3]) THEN
+        SET Status TO $'''Not Updated'''
+    END
+    Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: Status Column: $'''G''' Row: TargetRow
+    DateTime.GetCurrentDateTime.Local DateTimeFormat: DateTime.DateTimeFormat.DateAndTime CurrentDateTime=> CurrentDateTime
+    IF finalETA >= CurrentDateTime THEN
+        SET DeliveryStatus TO $'''NotDelivered'''
+    ELSE
+        SET DeliveryStatus TO $'''Delivered'''
+    END
+    IF Contains(Status, $'''Not''', True) THEN
+        SET DeliveryStatus TO $'''Not Updated'''
+    END
+    Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: DeliveryStatus Column: $'''I''' Row: TargetRow
+        ON ERROR WriteToExcelError
+            SET Unknown TO $'''Unknown'''
+            THROW ERROR
+        END
+    Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: CurrentDateTime Column: $'''H''' Row: TargetRow
+        ON ERROR WriteToExcelError
+            SET Unknown TO $'''Unknown'''
+            THROW ERROR
+        END
+    Excel.ResizeColumnsOrRows.AutofitAllColumns Instance: ExcelInstance
+    Variables.IncreaseVariable Value: OutputRow IncrementValue: 1
+END

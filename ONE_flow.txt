@@ -1,0 +1,67 @@
+SET Status TO $'''Tracked'''
+SET SLine TO $'''ONE'''
+WAIT 3
+WebAutomation.GoToWebPage.GoToWebPage BrowserInstance: Browser Url: $'''https://ecomm.one-line.com/one-ecom/manage-shipment/cargo-tracking?trakNoParam=%ONEParts[0]%''' WaitForPageToLoadTimeout: 60
+DISABLE UIAutomation.Click.Click Element: appmask['Window \'ONE : Cargo  ...  - Microsoft​ Edge\'']['Button \'Skip\''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+ON ERROR
+
+END
+DISABLE UIAutomation.Click.Click Element: appmask['Window \'Home | ONE India - Personal - Microsoft​ Edge\'']['List Item \'TRACKING\''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+ON ERROR
+
+END
+DISABLE UIAutomation.Click.Click Element: appmask['Window \'Home | ONE India - Personal - Microsoft​ Edge\'']['Edit \'Enter Tracking Number\''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+DISABLE WebAutomation.PopulateTextField.PopulateTextFieldUsePhysicalKeyboard BrowserInstance: Browser Control: appmask['Web Page \'https://in.one-line.com/\'']['Input text \'ctrack-field\''] Text: ONEParts[0] Mode: WebAutomation.PopulateTextMode.Replace UnfocusAfterPopulate: True WaitForPageToLoadTimeout: 60
+DISABLE UIAutomation.Click.Click Element: appmask['Window \'Home | ONE India - Personal - Microsoft​ Edge\'']['Button \'TRACK\''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+WAIT 5
+WebAutomation.ExtractData.ExtractHandPickedValues BrowserInstance: Browser ExtractionParameters: {[$'''html > body > div:eq(0) > main > div:eq(1) > div:eq(1) > div:eq(3) > div:eq(0) > div:eq(5) > div > div:eq(2) > div > div:eq(1) > div:eq(0) > div > div:eq(1) > div > div:eq(0) > span > span''', $'''Own Text''', $'''''', $'''Value #1'''], [$'''html > body > div:eq(0) > main > div:eq(1) > div:eq(1) > div:eq(3) > div:eq(0) > div:eq(5) > div > div:eq(2) > div > div:eq(1) > div:eq(0) > div > div:eq(1) > div > div:eq(1) > span:eq(0)''', $'''Own Text''', $'''''', $'''Value #2'''], [$'''html > body > div:eq(0) > main > div:eq(1) > div:eq(1) > div:eq(3) > div:eq(0) > div:eq(5) > div > div:eq(2) > div > div:eq(1) > div:eq(0) > div > div:eq(2) > div > div > div:eq(0)''', $'''Own Text''', $'''''', $'''Value #3'''], [$'''html > body > div:eq(0) > main > div:eq(1) > div:eq(1) > div:eq(3) > div:eq(0) > div:eq(5) > div > div:eq(2) > div > div:eq(1) > div:eq(0) > div > div:eq(4) > div > div:eq(1) > div > span''', $'''Own Text''', $'''''', $'''Value #4'''] } TimeoutInSeconds: 60 ExtractedData=> ExtractedContainerTable
+    ON ERROR
+        SET Status TO $'''Not Updated'''
+    END
+LOOP FOREACH CurrentExtractedRow IN ExtractedContainerTable
+    Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: CurrentExtractedRow[0] Column: $'''C''' Row: TargetRow
+    IF Contains(CurrentExtractedRow[1], 4, True) THEN
+        SET CurrentExtractedRow[1] TO $'''40\''''
+    ELSE IF Contains(CurrentExtractedRow[1], 2, True) THEN
+        SET CurrentExtractedRow[1] TO $'''22\''''
+    END
+    Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: CurrentExtractedRow[1] Column: $'''D''' Row: TargetRow
+    Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: CurrentExtractedRow[2] Column: $'''E''' Row: TargetRow
+    BLOCK dateerror
+ON BLOCK ERROR all
+    NEXT ACTION
+END
+        Text.ConvertDateTimeToText.FromCustomDateTime DateTime: CurrentExtractedRow[3] CustomFormat: $'''dd-MM-yyyy''' Result=> FormattedDateTime
+        Text.ConvertTextToDateTime.ToDateTimeCustomFormat Text: FormattedDateTime CustomFormat: $'''dd-MM-yyyy''' DateTime=> finalETA
+    END
+    Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: finalETA Column: $'''F''' Row: TargetRow
+        ON ERROR WriteToExcelError
+            SET Status TO $'''Not Tracked'''
+            SET CurrentExtractedRow[3] TO $'''---'''
+        END
+    IF IsEmpty(CurrentExtractedRow[3]) THEN
+        SET Status TO $'''Not Updated'''
+    END
+    Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: Status Column: $'''G''' Row: TargetRow
+    DateTime.GetCurrentDateTime.Local DateTimeFormat: DateTime.DateTimeFormat.DateAndTime CurrentDateTime=> CurrentDateTime
+    IF finalETA >= CurrentDateTime THEN
+        SET DeliveryStatus TO $'''NotDelivered'''
+    ELSE
+        SET DeliveryStatus TO $'''Delivered'''
+    END
+    IF Contains(Status, $'''Not''', True) THEN
+        SET DeliveryStatus TO $'''Not Updated'''
+    END
+    Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: DeliveryStatus Column: $'''I''' Row: TargetRow
+        ON ERROR WriteToExcelError
+            SET Unknown TO $'''Unknown'''
+            THROW ERROR
+        END
+    Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: CurrentDateTime Column: $'''H''' Row: TargetRow
+        ON ERROR WriteToExcelError
+            SET Unknown TO $'''Unknown'''
+            THROW ERROR
+        END
+    Excel.ResizeColumnsOrRows.AutofitAllColumns Instance: ExcelInstance
+    Variables.IncreaseVariable Value: OutputRow IncrementValue: 1
+END
