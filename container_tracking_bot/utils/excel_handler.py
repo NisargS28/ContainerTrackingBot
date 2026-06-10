@@ -557,10 +557,10 @@ def sync_input_to_output(input_path, output_path, sheet_name):
         return False
 
 
-def extract_msc_candidates_from_output(output_path, sheet_name):
+def extract_candidates_for_carrier(output_path, sheet_name, carrier_keyword):
     """
     Opens the output file for sheet_name and extracts container numbers
-    where S/LINE contains 'MSC' (case-insensitive) and DELIVERY STATUS
+    where S/LINE contains carrier_keyword (case-insensitive) and DELIVERY STATUS
     is not 'Delivered'.
     """
     if not os.path.exists(output_path):
@@ -581,7 +581,7 @@ def extract_msc_candidates_from_output(output_path, sheet_name):
     delivery_col = indices["delivery_status"]
 
     if not s_line_col or not container_col or not delivery_col:
-        logger.warning(f"Required columns missing in output sheet '{sheet_name}'. Cannot extract MSC candidates.")
+        logger.warning(f"Required columns missing in output sheet '{sheet_name}'. Cannot extract candidates.")
         return []
 
     candidates = []
@@ -594,7 +594,7 @@ def extract_msc_candidates_from_output(output_path, sheet_name):
         container_str = str(container_val or "").strip()
         delivery_str = str(delivery_val or "").strip()
 
-        if "MSC" not in s_line_str.upper():
+        if carrier_keyword.upper() not in s_line_str.upper():
             continue
 
         cleaned_no = clean_container_number(container_str)
@@ -614,7 +614,7 @@ def extract_msc_candidates_from_output(output_path, sheet_name):
             "DeliveryStatus": delivery_str
         })
 
-    logger.info(f"Sheet '{sheet_name}': Found {len(candidates)} MSC candidates to track (Delivery Status is not Delivered).")
+    logger.info(f"Sheet '{sheet_name}': Found {len(candidates)} {carrier_keyword} candidates to track (Delivery Status is not Delivered).")
     return candidates
 
 

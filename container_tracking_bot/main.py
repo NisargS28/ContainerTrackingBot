@@ -13,11 +13,13 @@ from utils.logger import logger
 from utils.excel_handler import (
     read_input_workbook,
     sync_input_to_output,
-    extract_msc_candidates_from_output,
+    extract_candidates_for_carrier,
     write_results_to_reference,
 )
 from utils.text_utils import extract_date_from_text
 from carriers.msc import MSCTracker
+from carriers.maersk import MaerskTracker
+from carriers.one import ONETracker
 
 
 # ---------------------------------------------------------------------------
@@ -58,9 +60,7 @@ def _make_error_result(container_no, error_msg):
         "CurrentStatus": "",
         "TrackingStatus": "Failed",
         "Remarks": error_msg,
-        "TrackingURL": (
-            f"https://www.msc.com/en/track-a-shipment?trackingNumber={container_no}"
-        ),
+        "TrackingURL": "",
         "TrackedAt": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }
 
@@ -69,9 +69,9 @@ def _make_error_result(container_no, error_msg):
 # Per-sheet tracking
 # ---------------------------------------------------------------------------
 
-def _track_sheet(sheet_name, candidates, tracker, containers_tracked_so_far):
+def _track_sheet(sheet_name, candidates, tracker, containers_tracked_so_far, carrier_name):
     """
-    Tracks all MSC containers for one sheet and returns the result list.
+    Tracks all containers for one sheet and returns the result list.
 
     `containers_tracked_so_far` drives the inter-request delay: the very first
     container ever (across all sheets) skips the delay so the run starts quickly.
@@ -116,7 +116,7 @@ def _track_sheet(sheet_name, candidates, tracker, containers_tracked_so_far):
         res["SheetName"]        = sheet_name
         res["OriginalExcelRow"] = row_idx
         res["SLine"]            = s_line
-        res["Carrier"]          = "MSC"
+        res["Carrier"]          = carrier_name
         res["BLNo"]             = bl_no
         res["ContainerNo"]      = container_no
         res["DeliveryStatus"]   = _determine_delivery_status(res, del_status)
@@ -159,8 +159,12 @@ def run_tracking():
     logger.info(f"Sheets to process: {sheets_to_process}")
     logger.info(f"Reference output file: {OUTPUT_REFERENCE_FILE}")
 
-    # 4. Initialise tracker (single browser session reused across all sheets)
-    tracker = MSCTracker()
+    # 4. Initialise trackers
+    trackers = {
+        "MSC": MSCTracker(),
+        "MAERSK": MaerskTracker(),
+        "ONE": ONETracker()
+    }
     total_tracked = 0
 
     try:
@@ -175,48 +179,49 @@ def run_tracking():
                 logger.error(f"Sync failed for sheet '{sheet_name}'. Skipping tracking for this sheet.")
                 continue
 
-            # 2. Extract MSC containers that are not delivered from the output file
-            candidates = extract_msc_candidates_from_output(OUTPUT_REFERENCE_FILE, sheet_name)
+            for carrier_name, tracker in trackers.items():
+                candidates = extract_candidates_for_carrier(OUTPUT_REFERENCE_FILE, sheet_name, carrier_name)
 
-            if not candidates:
-                logger.warning(
-                    f"No MSC containers to track in '{sheet_name}' "
-                    f"(already Delivered or no MSC rows found). Skipping."
-                )
-                continue
+                if not candidates:
+                    logger.warning(
+                        f"No {carrier_name} containers to track in '{sheet_name}' "
+                        f"(already Delivered or no {carrier_name} rows found). Skipping."
+                    )
+                    continue
 
-            logger.info(f"Found {len(candidates)} containers to track in '{sheet_name}'.")
+                logger.info(f"Found {len(candidates)} {carrier_name} containers to track in '{sheet_name}'.")
 
-            sheet_results = []
-            try:
-                sheet_results = _track_sheet(
-                    sheet_name, candidates, tracker, total_tracked
-                )
-                total_tracked += len(sheet_results)
-            except KeyboardInterrupt:
-                logger.warning(
-                    f"Interrupted during '{sheet_name}'. Saving partial results."
-                )
+                sheet_results = []
+                try:
+                    sheet_results = _track_sheet(
+                        sheet_name, candidates, tracker, total_tracked, carrier_name
+                    )
+                    total_tracked += len(sheet_results)
+                except KeyboardInterrupt:
+                    logger.warning(
+                        f"Interrupted during '{sheet_name}' ({carrier_name}). Saving partial results."
+                    )
+                    if sheet_results:
+                        write_results_to_reference(
+                            sheet_results, OUTPUT_REFERENCE_FILE, sheet_name
+                        )
+                    raise  # re-raise to hit the outer handler
+
+                # Write results for this sheet/carrier
                 if sheet_results:
                     write_results_to_reference(
                         sheet_results, OUTPUT_REFERENCE_FILE, sheet_name
                     )
-                raise  # re-raise to hit the outer handler
-
-            # 5. Write results for this sheet
-            if sheet_results:
-                write_results_to_reference(
-                    sheet_results, OUTPUT_REFERENCE_FILE, sheet_name
-                )
-                logger.info(
-                    f"Sheet '{sheet_name}' complete — "
-                    f"{len(sheet_results)} containers processed."
-                )
+                    logger.info(
+                        f"Sheet '{sheet_name}' ({carrier_name}) complete — "
+                        f"{len(sheet_results)} containers processed."
+                    )
 
     except KeyboardInterrupt:
         logger.warning("Tracking aborted by user.")
     finally:
-        tracker.close()
+        for tracker in trackers.values():
+            tracker.close()
 
     # 6. Final summary
     logger.info("=" * 60)

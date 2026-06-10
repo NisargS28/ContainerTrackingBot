@@ -30,3 +30,10 @@ class BaseTracker(ABC):
                 }
         """
         pass
+
+    def close(self):
+        """
+        Closes any underlying resources (like browser sessions).
+        Implemented by subclasses if they maintain persistent connections.
+        """
+        pass
