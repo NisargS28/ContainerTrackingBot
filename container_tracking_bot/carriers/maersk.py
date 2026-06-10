@@ -50,7 +50,7 @@ class MaerskTracker(BaseTracker):
             "DeliveryStatus": "Not Updated",
             "Remarks": "",
             "TrackingURL": f"https://www.maersk.com/tracking/{container_no}",
-            "TrackedAt": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            "TrackedAt": datetime.now().strftime("%d-%m-%Y %H:%M:%S")
         }
 
         if not self.driver:

@@ -20,6 +20,7 @@ from utils.text_utils import extract_date_from_text
 from carriers.msc import MSCTracker
 from carriers.maersk import MaerskTracker
 from carriers.one import ONETracker
+from carriers.hapag import HapagTracker
 
 
 # ---------------------------------------------------------------------------
@@ -61,7 +62,7 @@ def _make_error_result(container_no, error_msg):
         "TrackingStatus": "Failed",
         "Remarks": error_msg,
         "TrackingURL": "",
-        "TrackedAt": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "TrackedAt": datetime.now().strftime("%d-%m-%Y %H:%M:%S"),
     }
 
 
@@ -97,7 +98,7 @@ def _track_sheet(sheet_name, candidates, tracker, containers_tracked_so_far, car
                 "CurrentStatus": "", "TrackingStatus": "Skipped (Blank)",
                 "Remarks": "Container number is blank in Excel.",
                 "TrackingURL": "",
-                "TrackedAt": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "TrackedAt": datetime.now().strftime("%d-%m-%Y %H:%M:%S"),
             }
         else:
             try:
@@ -163,7 +164,8 @@ def run_tracking():
     trackers = {
         "MSC": MSCTracker(),
         "MAERSK": MaerskTracker(),
-        "ONE": ONETracker()
+        "ONE": ONETracker(),
+        "HAPAG": HapagTracker()
     }
     total_tracked = 0
 

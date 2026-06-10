@@ -51,7 +51,7 @@ class ONETracker(BaseTracker):
             "DeliveryStatus": "Not Updated",
             "Remarks": "",
             "TrackingURL": f"https://ecomm.one-line.com/one-ecom/manage-shipment/cargo-tracking?trakNoParam={container_no}&trakNoTpCdParam=C",
-            "TrackedAt": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "TrackedAt": datetime.now().strftime("%d-%m-%Y %H:%M:%S"),
             "Size": ""
         }
 

@@ -97,7 +97,7 @@ class MSCTracker(BaseTracker):
             "TrackingStatus": "Failed",
             "Remarks": "",
             "TrackingURL": f"{MSC_TRACKING_URL}?trackingNumber={container_no}",
-            "TrackedAt": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            "TrackedAt": datetime.now().strftime("%d-%m-%Y %H:%M:%S")
         }
 
         try:

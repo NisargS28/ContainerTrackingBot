@@ -339,14 +339,19 @@ def update_original_copy(tracking_results, input_path, output_path):
             # Format Tracked At datetime
             cell_tracked = sheet.cell(row=i, column=6)
             if isinstance(cell_tracked.value, datetime):
-                cell_tracked.number_format = 'yyyy-mm-dd hh:mm:ss'
+                cell_tracked.number_format = 'dd-mm-yyyy hh:mm:ss'
             elif isinstance(cell_tracked.value, str) and cell_tracked.value:
                 try:
-                    parsed = datetime.strptime(cell_tracked.value, '%Y-%m-%d %H:%M:%S')
+                    parsed = datetime.strptime(cell_tracked.value, '%d-%m-%Y %H:%M:%S')
                     cell_tracked.value = parsed
-                    cell_tracked.number_format = 'yyyy-mm-dd hh:mm:ss'
+                    cell_tracked.number_format = 'dd-mm-yyyy hh:mm:ss'
                 except ValueError:
-                    pass
+                    try:
+                        parsed = datetime.strptime(cell_tracked.value, '%Y-%m-%d %H:%M:%S')
+                        cell_tracked.value = parsed
+                        cell_tracked.number_format = 'dd-mm-yyyy hh:mm:ss'
+                    except ValueError:
+                        pass
 
         # Autofit columns
         for col in sheet.columns:
@@ -524,11 +529,11 @@ def sync_input_to_output(input_path, output_path, sheet_name):
         cell_dt = out_ws.cell(row=row_idx, column=7)
         if isinstance(cell_dt.value, str) and cell_dt.value:
             try:
-                parsed_dt = datetime.strptime(cell_dt.value, "%Y-%m-%d %H:%M:%S")
+                parsed_dt = datetime.strptime(cell_dt.value, "%d-%m-%Y %H:%M:%S")
                 cell_dt.value = parsed_dt
             except ValueError:
                 try:
-                    parsed_dt = datetime.strptime(cell_dt.value, "%d-%m-%Y %H:%M:%S")
+                    parsed_dt = datetime.strptime(cell_dt.value, "%Y-%m-%d %H:%M:%S")
                     cell_dt.value = parsed_dt
                 except ValueError:
                     pass
@@ -713,11 +718,11 @@ def write_results_to_reference(tracking_results, reference_path, sheet_name):
         cell_dt = ws.cell(row=row_idx, column=7)
         if isinstance(cell_dt.value, str) and cell_dt.value:
             try:
-                parsed_dt = datetime.strptime(cell_dt.value, "%Y-%m-%d %H:%M:%S")
+                parsed_dt = datetime.strptime(cell_dt.value, "%d-%m-%Y %H:%M:%S")
                 cell_dt.value = parsed_dt
             except ValueError:
                 try:
-                    parsed_dt = datetime.strptime(cell_dt.value, "%d-%m-%Y %H:%M:%S")
+                    parsed_dt = datetime.strptime(cell_dt.value, "%Y-%m-%d %H:%M:%S")
                     cell_dt.value = parsed_dt
                 except ValueError:
                     pass

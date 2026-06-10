@@ -15,5 +15,5 @@ class CMATracker(BaseTracker):
             "TrackingStatus": "Failed",
             "Remarks": "CMA CGM tracking is not implemented in Phase 1.",
             "TrackingURL": f"https://www.cma-cgm.com/eBusiness/Tracking?SearchValue={container_no}",
-            "TrackedAt": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            "TrackedAt": datetime.now().strftime("%d-%m-%Y %H:%M:%S")
         }
